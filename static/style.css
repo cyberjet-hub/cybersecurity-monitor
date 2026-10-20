@@ -4,19 +4,39 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cybersecurity Monitor</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <div class="container">
     <header>
       <h1>Cybersecurity Monitor</h1>
-      <p>Suspicious login detection and alerting dashboard</p>
+      <p>Live suspicious login detection and alerting dashboard</p>
     </header>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span>Total Alerts</span>
+        <strong id="total-alerts">{{ alerts|length }}</strong>
+      </div>
+      <div class="stat-card critical">
+        <span>Critical</span>
+        <strong id="critical-count">{{ alerts|selectattr('severity', 'equalto', 'CRITICAL')|list|length }}</strong>
+      </div>
+      <div class="stat-card high">
+        <span>High</span>
+        <strong id="high-count">{{ alerts|selectattr('severity', 'equalto', 'HIGH')|list|length }}</strong>
+      </div>
+      <div class="stat-card medium">
+        <span>Medium</span>
+        <strong id="medium-count">{{ alerts|selectattr('severity', 'equalto', 'MEDIUM')|list|length }}</strong>
+      </div>
+    </div>
 
     <section class="panel">
       <h2>Security Alerts</h2>
-      {% if alerts %}
-        <div class="alerts">
+      <div id="alerts" class="alerts">
+        {% if alerts %}
           {% for alert in alerts %}
             <article class="alert alert-{{ alert.severity.lower() }}">
               <div class="alert-head">
@@ -35,29 +55,52 @@
               </ul>
             </article>
           {% endfor %}
-        </div>
-      {% else %}
-        <p class="empty">No suspicious patterns detected.</p>
-      {% endif %}
-    </section>
-
-    <section class="panel">
-      <h2>Log Preview</h2>
-      <div class="log-box">
-        {% for line in log_lines %}
-          <div class="log-line">{{ line }}</div>
-        {% endfor %}
+        {% else %}
+          <p class="empty">No suspicious patterns detected.</p>
+        {% endif %}
       </div>
     </section>
 
     <section class="panel">
       <h2>Analyze Uploaded Log</h2>
-      <form action="/api/analyze" method="post" enctype="multipart/form-data">
+      <form id="upload-form" action="/api/analyze" method="post" enctype="multipart/form-data">
         <label for="log_file">Upload a log file</label>
         <input type="file" id="log_file" name="log_file">
         <button type="submit">Analyze</button>
       </form>
     </section>
   </div>
+
+  <script>
+    const socket = io();
+
+    socket.on('new_alerts', (alerts) => {
+      const container = document.getElementById('alerts');
+      alerts.forEach((alert) => {
+        const article = document.createElement('article');
+        article.className = `alert alert-${alert.severity.toLowerCase()}`;
+        article.innerHTML = `
+          <div class="alert-head">
+            <span class="badge badge-${alert.severity.toLowerCase()}">${alert.severity}</span>
+            <strong>${alert.type}</strong>
+          </div>
+          <p>${alert.message}</p>
+          <ul>
+            ${alert.user ? `<li>User: ${alert.user}</li>` : ''}
+            ${alert.source_ip ? `<li>Source IP: ${alert.source_ip}</li>` : ''}
+            ${alert.source_ips ? `<li>Source IPs: ${alert.source_ips.join(', ')}</li>` : ''}
+            ${alert.prior_failed_ips ? `<li>Prior failed IPs: ${alert.prior_failed_ips.join(', ')}</li>` : ''}
+            ${alert.target_users ? `<li>Target users: ${alert.target_users.join(', ')}</li>` : ''}
+            ${alert.count ? `<li>Count: ${alert.count}</li>` : ''}
+            ${alert.timestamp ? `<li>Timestamp: ${alert.timestamp}</li>` : ''}
+          </ul>
+        `;
+        container.prepend(article);
+      });
+
+      const count = container.querySelectorAll('.alert').length;
+      document.getElementById('total-alerts').textContent = count;
+    });
+  </script>
 </body>
 </html>

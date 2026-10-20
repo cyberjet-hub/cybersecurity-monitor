@@ -1,26 +1,33 @@
 from __future__ import annotations
 
+from flask import Flask, jsonify, render_template, request
+from flask_socketio import SocketIO
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
-
 from cybersecurity_monitor.analyzer import analyze_logs
+from cybersecurity_monitor.storage import get_alerts, save_alerts
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
-BASE_DIR = Path(__file__).resolve().parent
+app.config["SECRET_KEY"] = "cybersecurity-monitor-secret"
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 SAMPLE_LOG = BASE_DIR / "sample_logs.txt"
 
 
 @app.route("/")
 def index():
-    alerts = analyze_logs(SAMPLE_LOG.read_text(encoding="utf-8").splitlines())
     log_lines = SAMPLE_LOG.read_text(encoding="utf-8").splitlines()
+    alerts = get_alerts() or analyze_logs(log_lines)
     return render_template("index.html", alerts=alerts, log_lines=log_lines)
 
 
 @app.route("/api/alerts")
 def api_alerts():
-    alerts = analyze_logs(SAMPLE_LOG.read_text(encoding="utf-8").splitlines())
+    alerts = get_alerts()
+    if not alerts:
+        alerts = analyze_logs(SAMPLE_LOG.read_text(encoding="utf-8").splitlines())
+        save_alerts(alerts)
     return jsonify(alerts)
 
 
@@ -38,8 +45,15 @@ def api_analyze():
         lines = SAMPLE_LOG.read_text(encoding="utf-8").splitlines()
 
     alerts = analyze_logs(lines)
+    save_alerts(alerts)
+    socketio.emit("new_alerts", alerts, broadcast=True)
     return jsonify({"count": len(alerts), "alerts": alerts})
 
 
+@socketio.on("connect")
+def handle_connect():
+    socketio.emit("status", {"message": "Connected to Cybersecurity Monitor"})
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True)

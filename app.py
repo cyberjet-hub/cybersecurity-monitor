@@ -1,6 +1,2 @@
-from __future__ import annotations
-
-from .analyzer import analyze_logs
-
-__all__ = ["analyze_logs"]
-
+Flask>=3.0.0
+Flask-SocketIO>=5.0.0
