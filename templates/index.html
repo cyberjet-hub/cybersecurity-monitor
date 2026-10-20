@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from flask import Flask, jsonify, render_template, request
+
+from cybersecurity_monitor.analyzer import analyze_logs
+
+app = Flask(__name__, template_folder="templates", static_folder="static")
+BASE_DIR = Path(__file__).resolve().parent
+SAMPLE_LOG = BASE_DIR / "sample_logs.txt"
+
+
+@app.route("/")
+def index():
+    alerts = analyze_logs(SAMPLE_LOG.read_text(encoding="utf-8").splitlines())
+    log_lines = SAMPLE_LOG.read_text(encoding="utf-8").splitlines()
+    return render_template("index.html", alerts=alerts, log_lines=log_lines)
+
+
+@app.route("/api/alerts")
+def api_alerts():
+    alerts = analyze_logs(SAMPLE_LOG.read_text(encoding="utf-8").splitlines())
+    return jsonify(alerts)
+
+
+@app.route("/api/analyze", methods=["POST"])
+def api_analyze():
+    uploaded = request.files.get("log_file")
+    log_text = request.form.get("log_text")
+
+    if uploaded is not None and uploaded.filename:
+        content = uploaded.read().decode("utf-8", errors="replace")
+        lines = content.splitlines()
+    elif log_text:
+        lines = log_text.splitlines()
+    else:
+        lines = SAMPLE_LOG.read_text(encoding="utf-8").splitlines()
+
+    alerts = analyze_logs(lines)
+    return jsonify({"count": len(alerts), "alerts": alerts})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)

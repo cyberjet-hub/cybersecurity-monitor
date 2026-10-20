@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cybersecurity Monitor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Cybersecurity Monitor</h1>
+      <p>Suspicious login detection and alerting dashboard</p>
+    </header>
+
+    <section class="panel">
+      <h2>Security Alerts</h2>
+      {% if alerts %}
+        <div class="alerts">
+          {% for alert in alerts %}
+            <article class="alert alert-{{ alert.severity.lower() }}">
+              <div class="alert-head">
+                <span class="badge badge-{{ alert.severity.lower() }}">{{ alert.severity }}</span>
+                <strong>{{ alert.type }}</strong>
+              </div>
+              <p>{{ alert.message }}</p>
+              <ul>
+                {% if alert.user %}<li>User: {{ alert.user }}</li>{% endif %}
+                {% if alert.source_ip %}<li>Source IP: {{ alert.source_ip }}</li>{% endif %}
+                {% if alert.source_ips %}<li>Source IPs: {{ alert.source_ips | join(', ') }}</li>{% endif %}
+                {% if alert.prior_failed_ips %}<li>Prior failed IPs: {{ alert.prior_failed_ips | join(', ') }}</li>{% endif %}
+                {% if alert.target_users %}<li>Target users: {{ alert.target_users | join(', ') }}</li>{% endif %}
+                {% if alert.count %}<li>Count: {{ alert.count }}</li>{% endif %}
+                {% if alert.timestamp %}<li>Timestamp: {{ alert.timestamp }}</li>{% endif %}
+              </ul>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty">No suspicious patterns detected.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Log Preview</h2>
+      <div class="log-box">
+        {% for line in log_lines %}
+          <div class="log-line">{{ line }}</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Analyze Uploaded Log</h2>
+      <form action="/api/analyze" method="post" enctype="multipart/form-data">
+        <label for="log_file">Upload a log file</label>
+        <input type="file" id="log_file" name="log_file">
+        <button type="submit">Analyze</button>
+      </form>
+    </section>
+  </div>
+</body>
+</html>
